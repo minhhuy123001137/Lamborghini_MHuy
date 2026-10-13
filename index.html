@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#080908">
+<title>LAMBORGHINI AVENTADOR SVJ — 3D Wind Tunnel & Drive-By Showcase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<!-- Three.js for 3D Background Supercar & Aerodynamic Wind Tunnel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- Three.js GLTFLoader -->
+<script src="GLTFLoader.js"></script>
+<!-- Embedded 3D Lamborghini Aventador SVJ Binary Model (Runs locally without CORS issues) -->
+<script src="models/lambo_model_data.js"></script>
+</head>
+<body>
+
+<!-- Three.js 3D WebGL Canvas for Interactive Background Supercar & Wind Tunnel -->
+<canvas id="webgl-canvas" class="webgl-canvas" aria-hidden="true"></canvas>
+
+<!-- Subtle Noise Grain Overlay -->
+<div class="grain"></div>
+
+<!-- Top Navigation Bar -->
+<header class="topbar">
+  <a class="brand" href="#home" aria-label="Lamborghini home">
+    <span class="crest">L</span>
+    <span>AUTOMOBILI<br><b>LAMBORGHINI</b></span>
+  </a>
+
+  <nav class="nav" id="nav">
+    <a href="#design">THIẾT KẾ</a>
+    <a href="#performance">HIỆU NĂNG</a>
+    <a href="#models">DÒNG XE</a>
+    <a href="#experience">TRẢI NGHIỆM</a>
+  </nav>
+
+  <!-- Quick Interactive Controls in Topbar -->
+  <div class="top-actions">
+    <button class="top-btn" id="soundToggle" title="Bật/Tắt âm thanh động cơ V12 & tiếng xe lướt gió" aria-label="Bật/Tắt âm thanh">
+      <span class="btn-icon">🔇</span>
+      <span class="btn-text">SOUND: TẮT</span>
+    </button>
+    <button class="top-btn" id="windToggle" title="Bật/Tắt chế độ hầm gió khí động học (Wind Tunnel)" aria-label="Khí động học">
+      <span class="btn-icon">💨</span>
+      <span class="btn-text">LƯỚT GIÓ: ON</span>
+    </button>
+    <button class="top-btn" id="orbitToggle" title="Xoay tự do quan sát siêu xe 3D 360 độ" aria-label="Xoay 3D">
+      <span class="btn-icon">🏎️</span>
+      <span class="btn-text">XOAY 3D</span>
+    </button>
+    <a class="top-cta" href="#models">KHÁM PHÁ <span>↗</span></a>
+  </div>
+
+  <button class="hamburger" id="hamburger" aria-label="Mở menu" aria-expanded="false">
+    <i></i><i></i>
+  </button>
+</header>
+
+<!-- Supercar Telemetry HUD (Squadra Corse Aero Dashboard) -->
+<aside class="telemetry-hud" aria-label="Thông số khí động học thời gian thực">
+  <div class="hud-item">
+    <span class="hud-label">TỐC ĐỘ</span>
+    <b class="hud-val" id="hudSpeed">355</b>
+    <span class="hud-unit">KM/H</span>
+  </div>
+  <div class="hud-divider"></div>
+  <div class="hud-item">
+    <span class="hud-label">LƯỢT GIÓ / DRAG</span>
+    <b class="hud-val" id="hudDrag">0.33</b>
+    <span class="hud-unit">Cd</span>
+  </div>
+  <div class="hud-divider"></div>
+  <div class="hud-item">
+    <span class="hud-label">LỰC ÉP / DOWNFORCE</span>
+    <b class="hud-val" id="hudDownforce">610</b>
+    <span class="hud-unit">KG</span>
+  </div>
+  <div class="hud-divider"></div>
+  <div class="hud-item hud-mode-item">
+    <span class="hud-label">SIÊU XE 3D</span>
+    <b class="hud-val hud-accent" id="hudCameraMode">AVENTADOR SVJ ORANGE</b>
+  </div>
+</aside>
+
+<main>
+
+  <!-- 00 HERO SECTION -->
+  <section class="hero" id="home">
+    <div class="hero-shade"></div>
+    <div class="hero-grid"></div>
+    <div class="hero-content">
+      <div class="eyebrow"><span></span> AUTOMOBILI LAMBORGHINI · ITALY</div>
+      <p class="hero-kicker">LAMBORGHINI AVENTADOR SVJ</p>
+      <h1>FEEL THE<br><em>THUNDER.</em></h1>
+      <p class="hero-desc">Chiêm ngưỡng cỗ máy Aventador SVJ màu cam rực lửa đang xé gió trong hầm khí động học 3D. Hệ thống khí động học ALA 2.0 chủ động, động cơ V12 770 mã lực gầm vang và hiệu ứng xe lướt gió tốc độ cao đỉnh cao.</p>
+      <div class="hero-actions">
+        <a class="hero-button" href="#design">BƯỚC VÀO THẾ GIỚI LAMBORGHINI <span>↘</span></a>
+        <button class="hero-secondary-btn" id="heroDriveTestBtn">
+          <span>⚡ THỬ LƯỚT TỐC ĐỘ</span>
+        </button>
+      </div>
+    </div>
+    <div class="hero-side">AERODYNAMICA LAMBORGHINI ATTIVA <b>— 01 / 04</b></div>
+    <div class="hero-bottom">
+      <span>SANT’AGATA BOLOGNESE, ITALY</span>
+      <span>CUỘN XUỐNG ĐỂ XEM CHIẾC XE KÉO NỘI DUNG ↓</span>
+      <span>BEYOND THE LIMITS</span>
+    </div>
+    <div class="hero-counter"><b>01</b><span></span>04</div>
+  </section>
+
+  <!-- 01 DESIGN SECTION (WITH CAR DRIVE-BY REVEAL) -->
+  <section class="intro section car-reveal-section" id="design" data-driveby="design">
+    <div class="car-driveby-track" aria-hidden="true">
+      <div class="car-driveby-vehicle">
+        <div class="car-headlight-cone"></div>
+        <div class="car-underglow"></div>
+        <div class="car-svg-wrap">
+          <!-- Scalable Aerodynamic Lamborghini Aventador SVJ Profile SVG -->
+          <svg class="car-svg" viewBox="0 0 460 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="bodyGradOrange" x1="0" y1="0" x2="460" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#7a2000"/>
+                <stop offset="20%" stop-color="#ff5500"/>
+                <stop offset="50%" stop-color="#ff7f24"/>
+                <stop offset="80%" stop-color="#ff4500"/>
+                <stop offset="100%" stop-color="#4a1500"/>
+              </linearGradient>
+              <linearGradient id="glassGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#141920" stop-opacity="0.95"/>
+                <stop offset="60%" stop-color="#2c3a4a" stop-opacity="0.8"/>
+                <stop offset="100%" stop-color="#0a0e14" stop-opacity="0.95"/>
+              </linearGradient>
+              <linearGradient id="rimGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#3a3d42"/>
+                <stop offset="50%" stop-color="#141516"/>
+                <stop offset="100%" stop-color="#282a2d"/>
+              </linearGradient>
+              <filter id="laserGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <ellipse cx="230" cy="106" rx="210" ry="6" fill="#000000" opacity="0.8" />
+            
+            <!-- Carbon Fiber SVJ Splitter & Sills -->
+            <path d="M448 95 L400 97 L340 98 L120 98 L40 97 L2 95 L5 90 L445 90 Z" fill="#141416" />
+            <path d="M4 96 L20 102 L40 98 Z" fill="#ff5500" />
+            <path d="M445 95 L425 101 L405 98 Z" fill="#ff5500" />
+
+            <!-- Main Lamborghini Wedge Bodywork (Aventador SVJ Orange) -->
+            <path d="M22 84 L58 84 C68 64 96 64 106 84 L310 84 C320 64 348 64 358 84 L415 84 L448 90 L442 80 L405 72 L388 64 L340 50 L275 42 L210 42 L160 52 L120 65 L60 70 L25 76 L10 82 Z" fill="url(#bodyGradOrange)" stroke="#ff7722" stroke-width="0.8"/>
+            <path d="M415 84 L448 90 L435 77 L385 68 L320 62 L200 60 L140 64 L75 72 L18 80 L22 84 Z" fill="#181a17" opacity="0.3" />
+            
+            <!-- Cockpit Canopy Glass -->
+            <path d="M175 58 L215 44 L270 44 L328 52 L310 60 L210 60 Z" fill="url(#glassGrad)" stroke="#ff5500" stroke-width="0.7" />
+            <path d="M275 46 L320 53 L310 56 L268 47 Z" fill="#ffffff" opacity="0.4" />
+
+            <!-- Signature Y-Headlight (Aventador DRL) -->
+            <path d="M438 80 L420 78 L430 75 Z" fill="#ffffff" filter="url(#laserGlow)"/>
+            <path d="M444 81 L426 78 M436 76 L426 78 M440 82 L444 81" stroke="#ffffff" stroke-width="2" stroke-linecap="round" filter="url(#laserGlow)"/>
+
+            <!-- Signature Y-Taillight -->
+            <path d="M12 80 L26 79 L18 76" stroke="#ff1818" stroke-width="2.5" stroke-linecap="round" filter="url(#laserGlow)"/>
+
+            <!-- High SVJ Swan-Neck Wing -->
+            <path d="M4 60 L38 60 L50 66 L18 66 Z" fill="#121314" stroke="#ff5500" stroke-width="0.6"/>
+            <path d="M2 54 L8 54 L6 68 L1 68 Z" fill="#ff5500"/>
+            <path d="M16 66 L20 74 L14 74 Z" fill="#111"/>
+
+            <!-- Side Air Intake Blade (NACA Scoop) -->
+            <path d="M245 66 L295 64 L280 82 L230 82 Z" fill="#0d0e0c" stroke="#ff5500" stroke-width="0.6"/>
+            <path d="M255 69 L285 67 L275 79 Z" fill="#1f221c"/>
+
+            <!-- Dual Center Exhaust -->
+            <rect x="0" y="81" width="8" height="6" rx="2" fill="#2b2d2f" stroke="#ff7700" stroke-width="0.6"/>
+
+            <!-- Front Black Multi-Spoke Wheel with Orange Caliper -->
+            <g class="wheel-group" transform="translate(334, 84)">
+              <circle r="21" fill="#121313" stroke="#25272a" stroke-width="3"/>
+              <circle r="16" fill="#1c1d1e"/>
+              <circle r="13" fill="#383b40" stroke="#50555e" stroke-width="0.8" stroke-dasharray="2,2"/>
+              <path d="M-4 -12 A12 12 0 0 1 10 -6 L6 -2 A8 8 0 0 0 -3 -7 Z" fill="#ff5500"/>
+              <g class="wheel-spokes">
+                <circle r="4" fill="url(#rimGrad)"/>
+                <line x1="0" y1="0" x2="0" y2="-15" stroke="url(#rimGrad)" stroke-width="2.5"/>
+                <line x1="0" y1="0" x2="14" y2="-5" stroke="url(#rimGrad)" stroke-width="2.5"/>
+                <line x1="0" y1="0" x2="9" y2="12" stroke="url(#rimGrad)" stroke-width="2.5"/>
+                <line x1="0" y1="0" x2="-9" y2="12" stroke="url(#rimGrad)" stroke-width="2.5"/>
+                <line x1="0" y1="0" x2="-14" y2="-5" stroke="url(#rimGrad)" stroke-width="2.5"/>
+              </g>
+            </g>
+
+            <!-- Rear Black Multi-Spoke Wheel with Orange Caliper -->
+            <g class="wheel-group" transform="translate(82, 84)">
+              <circle r="21" fill="#121313" stroke="#25272a" stroke-width="3"/>
+              <circle r="16" fill="#1c1d1e"/>
+              <circle r="13" fill="#383b40" stroke="#50555e" stroke-width="0.8" stroke-dasharray="2,2"/>
+              <path d="M-4 -12 A12 12 0 0 1 10 -6 L6 -2 A8 8 0 0 0 -3 -7 Z" fill="#ff5500"/>
+              <g class="wheel-spokes">
+                <circle r="4" fill="url(#rimGrad)"/>
+                <line x1="0" y1="0" x2="0" y2="-15" stroke="url(#rimGrad)" stroke-width="2.5"/>
+                <line x1="0" y1="0" x2="14" y2="-5" stroke="url(#rimGrad)" stroke-width="2.5"/>
+                <line x1="0" y1="0" x2="9" y2="12" stroke="url(#rimGrad)" stroke-width="2.5"/>
+                <line x1="0" y1="0" x2="-9" y2="12" stroke="url(#rimGrad)" stroke-width="2.5"/>
+                <line x1="0" y1="0" x2="-14" y2="-5" stroke="url(#rimGrad)" stroke-width="2.5"/>
+              </g>
+            </g>
+
+            <!-- Aerodynamic Flow Ribbons on SVJ Profile -->
+            <path d="M445 78 C380 70 340 48 260 42 C180 38 100 55 4 60" stroke="#ff944d" stroke-width="1.4" stroke-linecap="round" opacity="0.9" filter="url(#laserGlow)"/>
+            <path d="M420 84 C360 84 310 74 240 70 C160 68 90 82 20 84" stroke="#ffffff" stroke-width="0.8" opacity="0.6"/>
+          </svg>
+        </div>
+        <div class="car-exhaust-flame"></div>
+        <div class="car-wind-streaks">
+          <span class="w-streak s1"></span>
+          <span class="w-streak s2"></span>
+          <span class="w-streak s3"></span>
+        </div>
+        <div class="car-pull-beam">
+          <div class="beam-laser"></div>
+          <div class="beam-glow"></div>
+          <div class="beam-sparks"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Replay Trigger Button -->
+    <button class="driveby-replay-btn" data-target="design" title="Cho chiếc xe chạy qua kéo lại nội dung lần nữa" aria-label="Chạy lại hiệu ứng chiếc xe kéo nội dung">
+      <span class="replay-ico">🏎️</span> <span>KÉO LẠI NỘI DUNG</span>
+    </button>
+
+    <!-- Content Revealed by Car Pass -->
+    <div class="car-reveal-content">
+      <div class="section-tag">01 — THE DESIGN PHILOSOPHY</div>
+      <div class="intro-grid">
+        <div>
+          <p class="overline">ĐƯỜNG NÉT CỦA SỰ KHÁC BIỆT</p>
+          <h2>SHARP.<br><span>BOLD.</span><br>UNMISTAKABLE.</h2>
+        </div>
+        <div class="intro-copy">
+          <p>Mỗi chiếc Lamborghini là sự kết hợp giữa tỷ lệ đầy kịch tính, những đường cắt sắc lẹm và tinh thần thiết kế lấy cảm hứng từ công nghệ hàng không vũ trụ.</p>
+          <p>Hình khối nêm thấp, cánh gió khí động học ALA 2.0 chủ động và chữ Y đặc trưng tạo nên diện mạo không thể nhầm lẫn. Hiệu ứng hầm gió tối ưu lực ép mặt đường ở tốc độ trên 350 km/h.</p>
+          <a class="line-link" href="#models">KHÁM PHÁ CÁC DÒNG XE <span>↗</span></a>
+        </div>
+      </div>
+      <div class="design-image">
+        <div class="design-image-overlay"></div>
+        <div class="image-label">
+          <span>FORM FOLLOWS EMOTION</span>
+          <b>ITALIAN DESIGN DNA · AVENTADOR SVJ</b>
+        </div>
+        <div class="image-index">DETAIL / 001</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 PERFORMANCE SECTION -->
+  <section class="performance section car-reveal-section" id="performance" data-driveby="performance">
+    <div class="car-driveby-track" aria-hidden="true">
+      <div class="car-driveby-vehicle">
+        <div class="car-headlight-cone"></div>
+        <div class="car-underglow"></div>
+        <div class="car-svg-wrap">
+          <svg class="car-svg" viewBox="0 0 460 115" fill="none">
+            <ellipse cx="230" cy="106" rx="210" ry="6" fill="#000000" opacity="0.8" />
+            <path d="M448 95 L400 97 L340 98 L120 98 L40 97 L2 95 L5 90 L445 90 Z" fill="#141416" />
+            <path d="M22 84 L58 84 C68 64 96 64 106 84 L310 84 C320 64 348 64 358 84 L415 84 L448 90 L442 80 L405 72 L388 64 L340 50 L275 42 L210 42 L160 52 L120 65 L60 70 L25 76 L10 82 Z" fill="#ff5500" stroke="#fff" stroke-width="0.8"/>
+            <path d="M175 58 L215 44 L270 44 L328 52 L310 60 L210 60 Z" fill="#0e131a" stroke="#ff5500" stroke-width="0.7" />
+            <path d="M438 80 L420 78 L430 75 Z" fill="#ffffff"/>
+            <path d="M12 80 L26 79 L18 76" stroke="#ff2222" stroke-width="2.5"/>
+            <path d="M4 60 L38 60 L50 66 L18 66 Z" fill="#121314"/>
+            <g class="wheel-group" transform="translate(334, 84)">
+              <circle r="21" fill="#111"/><circle r="15" fill="#222"/>
+              <g class="wheel-spokes"><circle r="4" fill="#333"/><line x1="0" y1="0" x2="0" y2="-15" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="14" y2="-5" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-14" y2="-5" stroke="#333" stroke-width="2.5"/></g>
+            </g>
+            <g class="wheel-group" transform="translate(82, 84)">
+              <circle r="21" fill="#111"/><circle r="15" fill="#222"/>
+              <g class="wheel-spokes"><circle r="4" fill="#333"/><line x1="0" y1="0" x2="0" y2="-15" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="14" y2="-5" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-14" y2="-5" stroke="#333" stroke-width="2.5"/></g>
+            </g>
+            <path d="M445 78 C380 70 340 48 260 42 C180 38 100 55 4 60" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="car-exhaust-flame"></div>
+        <div class="car-wind-streaks">
+          <span class="w-streak s1"></span>
+          <span class="w-streak s2"></span>
+          <span class="w-streak s3"></span>
+        </div>
+        <div class="car-pull-beam">
+          <div class="beam-laser"></div>
+          <div class="beam-glow"></div>
+          <div class="beam-sparks"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="driveby-replay-btn" data-target="performance" title="Cho chiếc xe chạy qua kéo lại nội dung lần nữa" aria-label="Chạy lại hiệu ứng chiếc xe kéo nội dung">
+      <span class="replay-ico">🏎️</span> <span>KÉO LẠI NỘI DUNG</span>
+    </button>
+
+    <div class="car-reveal-content">
+      <div class="section-tag">02 — ENGINEERED FOR EMOTION</div>
+      <div class="performance-head">
+        <div>
+          <p class="overline">HIỆU NĂNG ĐÁNG KINH NGẠC</p>
+          <h2>POWER IS<br><span>AN EMOTION.</span></h2>
+        </div>
+        <div class="performance-telemetry">
+          <div class="telemetry-box">
+            <b>0-100 KM/H</b>
+            <span>2.8 GIÂY</span>
+          </div>
+          <div class="telemetry-box">
+            <b>CÔNG SUẤT V12</b>
+            <span>770 HP</span>
+          </div>
+        </div>
+      </div>
+      <div class="stats">
+        <article>
+          <span class="stat-mark">↗</span>
+          <b>01</b>
+          <h3>KHÍ ĐỘNG HỌC ALA 2.0</h3>
+          <p>Cánh gió chủ động và luồng khí điện tử tạo lực ép khí động học kỷ lục 490 kg tại tốc độ tối đa.</p>
+        </article>
+        <article>
+          <span class="stat-mark">✳</span>
+          <b>02</b>
+          <h3>ĐỘNG CƠ V12 THUẦN KHIẾT</h3>
+          <p>Cỗ máy 6.5 lít hút khí tự nhiên gầm vang với tốc độ tua máy 8,500 RPM, mang lại cảm xúc phấn khích tột độ.</p>
+        </article>
+        <article>
+          <span class="stat-mark">⌁</span>
+          <b>03</b>
+          <h3>DẪN ĐỘNG 4 BÁNH & ĐÁNH LÁI</h3>
+          <p>Hệ thống dẫn động AWD kết hợp đánh lái 4 bánh toàn thời gian giúp siêu xe ôm cua với độ chính xác đến từng milimet.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 MODELS SECTION (WITH CAR DRIVE-BY REVEAL & 3D COLOR CUSTOMIZER) -->
+  <section class="models section car-reveal-section" id="models" data-driveby="models">
+    <div class="car-driveby-track" aria-hidden="true">
+      <div class="car-driveby-vehicle">
+        <div class="car-headlight-cone"></div>
+        <div class="car-underglow"></div>
+        <div class="car-svg-wrap">
+          <svg class="car-svg" viewBox="0 0 460 115" fill="none">
+            <ellipse cx="230" cy="106" rx="210" ry="6" fill="#000000" opacity="0.8" />
+            <path d="M448 95 L400 97 L340 98 L120 98 L40 97 L2 95 L5 90 L445 90 Z" fill="#141416" />
+            <path d="M22 84 L58 84 C68 64 96 64 106 84 L310 84 C320 64 348 64 358 84 L415 84 L448 90 L442 80 L405 72 L388 64 L340 50 L275 42 L210 42 L160 52 L120 65 L60 70 L25 76 L10 82 Z" fill="#ff5500" stroke="#fff" stroke-width="0.8"/>
+            <path d="M175 58 L215 44 L270 44 L328 52 L310 60 L210 60 Z" fill="#0e131a" stroke="#ff5500" stroke-width="0.7" />
+            <path d="M438 80 L420 78 L430 75 Z" fill="#ffffff"/>
+            <path d="M12 80 L26 79 L18 76" stroke="#ff2222" stroke-width="2.5"/>
+            <path d="M4 60 L38 60 L50 66 L18 66 Z" fill="#121314"/>
+            <g class="wheel-group" transform="translate(334, 84)">
+              <circle r="21" fill="#111"/><circle r="15" fill="#222"/>
+              <g class="wheel-spokes"><circle r="4" fill="#333"/><line x1="0" y1="0" x2="0" y2="-15" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="14" y2="-5" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-14" y2="-5" stroke="#333" stroke-width="2.5"/></g>
+            </g>
+            <g class="wheel-group" transform="translate(82, 84)">
+              <circle r="21" fill="#111"/><circle r="15" fill="#222"/>
+              <g class="wheel-spokes"><circle r="4" fill="#333"/><line x1="0" y1="0" x2="0" y2="-15" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="14" y2="-5" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-14" y2="-5" stroke="#333" stroke-width="2.5"/></g>
+            </g>
+            <path d="M445 78 C380 70 340 48 260 42 C180 38 100 55 4 60" stroke="#ff7722" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="car-exhaust-flame"></div>
+        <div class="car-wind-streaks">
+          <span class="w-streak s1"></span>
+          <span class="w-streak s2"></span>
+          <span class="w-streak s3"></span>
+        </div>
+        <div class="car-pull-beam">
+          <div class="beam-laser"></div>
+          <div class="beam-glow"></div>
+          <div class="beam-sparks"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="driveby-replay-btn" data-target="models" title="Cho chiếc xe chạy qua kéo lại nội dung lần nữa" aria-label="Chạy lại hiệu ứng chiếc xe kéo nội dung">
+      <span class="replay-ico">🏎️</span> <span>KÉO LẠI NỘI DUNG</span>
+    </button>
+
+    <div class="car-reveal-content">
+      <div class="models-top">
+        <div>
+          <div class="section-tag">03 — THE MACHINES</div>
+          <p class="overline">MỖI CÁ TÍNH, MỘT HUYỀN THOẠI</p>
+          <h2>CHOOSE YOUR<br><span>ADRENALINE.</span></h2>
+        </div>
+        
+        <!-- Interactive 3D Paint Color Customizer -->
+        <div class="car-color-picker">
+          <span class="color-picker-title">ĐỔI MÀU SƠN SIÊU XE 3D TRONG NỀN:</span>
+          <div class="color-swatches" id="colorSwatches">
+            <button class="swatch active" data-color="#ff5500" data-name="Arancio Atlas" style="--c:#ff5500" title="Arancio Atlas (Cam SVJ Đua)"></button>
+            <button class="swatch" data-color="#d8bb4f" data-name="Giallo Auge" style="--c:#d8bb4f" title="Giallo Auge (Vàng Gold)"></button>
+            <button class="swatch" data-color="#24e054" data-name="Verde Mantis" style="--c:#24e054" title="Verde Mantis (Xanh Cốm)"></button>
+            <button class="swatch" data-color="#141414" data-name="Nero Nemesis" style="--c:#141414" title="Nero Nemesis (Đen Mờ)"></button>
+            <button class="swatch" data-color="#d91424" data-name="Rosso Mars" style="--c:#d91424" title="Rosso Mars (Đỏ Thể Thao)"></button>
+            <button class="swatch" data-color="#f2f2f2" data-name="Bianco Monocerus" style="--c:#f2f2f2" title="Bianco Monocerus (Trắng Ngọc)"></button>
+          </div>
+          <span class="color-current-name" id="colorCurrentName">Arancio Atlas (Cam Đua SVJ)</span>
+        </div>
+      </div>
+
+      <div class="model-grid">
+        <article class="model-card active" data-model="revuelto">
+          <div class="model-photo revuelto-photo"></div>
+          <div class="model-meta">
+            <span>V12 HYBRID SUPER SPORTS</span>
+            <span>01 / 03</span>
+          </div>
+          <h3>REVUELTO</h3>
+          <p>Sức mạnh 1,015 mã lực từ cỗ máy V12 kết hợp công nghệ hybrid hiện đại.</p>
+          <button class="model-more" data-target="revuelto">KHÁM PHÁ MẪU XE <span>↗</span></button>
+        </article>
+
+        <article class="model-card" data-model="temerario">
+          <div class="model-photo temerario-photo"></div>
+          <div class="model-meta">
+            <span>V8 TWIN-TURBO HYBRID</span>
+            <span>02 / 03</span>
+          </div>
+          <h3>TEMERARIO</h3>
+          <p>Một chương mới với động cơ V8 turbo vòng tua kỷ lục 10,000 RPM.</p>
+          <button class="model-more" data-target="temerario">KHÁM PHÁ MẪU XE <span>↗</span></button>
+        </article>
+
+        <article class="model-card" data-model="urus">
+          <div class="model-photo urus-photo"></div>
+          <div class="model-meta">
+            <span>SUPER SUV</span>
+            <span>03 / 03</span>
+          </div>
+          <h3>URUS SE</h3>
+          <p>Sự kết hợp hoàn mỹ giữa chất SUV đa địa hình và linh hồn siêu xe tốc độ.</p>
+          <button class="model-more" data-target="urus">KHÁM PHÁ MẪU XE <span>↗</span></button>
+        </article>
+      </div>
+
+      <div class="model-detail" id="modelDetail" aria-live="polite">
+        <div>
+          <span class="detail-label">SELECTED MODEL</span>
+          <h3 id="detailTitle">AVENTADOR SVJ</h3>
+        </div>
+        <p id="detailText">Đỉnh cao của dòng siêu xe V12 hút khí tự nhiên thuần khiết từ Lamborghini. Thiết kế nêm khí động học ALA 2.0 chủ động với cánh gió đuôi carbon và màu cam Arancio Atlas rực lửa, từng lập kỷ lục hoàn thành vòng đua Nürburgring Nordschleife.</p>
+        <a id="detailLink" href="https://www.lamborghini.com/" target="_blank" rel="noreferrer">XEM TRÊN TRANG CHÍNH THỨC ↗</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 EXPERIENCE SECTION -->
+  <section class="experience car-reveal-section" id="experience" data-driveby="experience">
+    <div class="car-driveby-track" aria-hidden="true">
+      <div class="car-driveby-vehicle">
+        <div class="car-headlight-cone"></div>
+        <div class="car-underglow"></div>
+        <div class="car-svg-wrap">
+          <svg class="car-svg" viewBox="0 0 460 115" fill="none">
+            <ellipse cx="230" cy="106" rx="210" ry="6" fill="#000000" opacity="0.8" />
+            <path d="M448 95 L400 97 L340 98 L120 98 L40 97 L2 95 L5 90 L445 90 Z" fill="#141416" />
+            <path d="M22 84 L58 84 C68 64 96 64 106 84 L310 84 C320 64 348 64 358 84 L415 84 L448 90 L442 80 L405 72 L388 64 L340 50 L275 42 L210 42 L160 52 L120 65 L60 70 L25 76 L10 82 Z" fill="#ff5500" stroke="#fff" stroke-width="0.8"/>
+            <path d="M175 58 L215 44 L270 44 L328 52 L310 60 L210 60 Z" fill="#0e131a" stroke="#ff5500" stroke-width="0.7" />
+            <path d="M438 80 L420 78 L430 75 Z" fill="#ffffff"/>
+            <path d="M12 80 L26 79 L18 76" stroke="#ff2222" stroke-width="2.5"/>
+            <path d="M4 60 L38 60 L50 66 L18 66 Z" fill="#121314"/>
+            <g class="wheel-group" transform="translate(334, 84)"><circle r="21" fill="#111"/><circle r="15" fill="#222"/><g class="wheel-spokes"><circle r="4" fill="#333"/><line x1="0" y1="0" x2="0" y2="-15" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="14" y2="-5" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-14" y2="-5" stroke="#333" stroke-width="2.5"/></g></g>
+            <g class="wheel-group" transform="translate(82, 84)"><circle r="21" fill="#111"/><circle r="15" fill="#222"/><g class="wheel-spokes"><circle r="4" fill="#333"/><line x1="0" y1="0" x2="0" y2="-15" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="14" y2="-5" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-9" y2="12" stroke="#333" stroke-width="2.5"/><line x1="0" y1="0" x2="-14" y2="-5" stroke="#333" stroke-width="2.5"/></g></g>
+            <path d="M445 78 C380 70 340 48 260 42 C180 38 100 55 4 60" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="car-exhaust-flame"></div>
+        <div class="car-wind-streaks">
+          <span class="w-streak s1"></span>
+          <span class="w-streak s2"></span>
+          <span class="w-streak s3"></span>
+        </div>
+        <div class="car-pull-beam">
+          <div class="beam-laser"></div>
+          <div class="beam-glow"></div>
+          <div class="beam-sparks"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="driveby-replay-btn" data-target="experience" title="Cho chiếc xe chạy qua kéo lại nội dung lần nữa" aria-label="Chạy lại hiệu ứng chiếc xe kéo nội dung">
+      <span class="replay-ico">🏎️</span> <span>KÉO LẠI NỘI DUNG</span>
+    </button>
+
+    <div class="car-reveal-content">
+      <div class="experience-bg"></div>
+      <div class="experience-content">
+        <div class="section-tag">04 — BEYOND DRIVING</div>
+        <p class="overline">KHÔNG CHỈ LÀ MỘT CHIẾC XE</p>
+        <h2>IT'S A<br><span>STATEMENT.</span></h2>
+        <p>Đó là sự giao thoa giữa kỹ thuật hàng không vũ trụ, nghệ thuật tạo hình Ý và cảm xúc bản năng. Một trải nghiệm hầm gió và tốc độ đánh thức mọi giác quan của người cầm lái.</p>
+        <a class="hero-button" href="https://www.lamborghini.com/" target="_blank" rel="noreferrer">KHÁM PHÁ LAMBORGHINI <span>↗</span></a>
+      </div>
+      <div class="experience-stamp">MADE<br>IN ITALY<span>✳</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <a class="brand" href="#home">
+    <span class="crest">L</span>
+    <span>AUTOMOBILI<br><b>LAMBORGHINI</b></span>
+  </a>
+  <span>CONCEPT WEBSITE · 3D WIND TUNNEL & DYNAMIC CAR TRANSITIONS</span>
+  <a href="#home">BACK TO TOP ↑</a>
+</footer>
+
+<!-- Interactive Cursor Glow -->
+<div class="cursor-glow" id="cursorGlow"></div>
+
+<!-- Main Script -->
+<script src="script.js"></script>
+</body>
+</html>
