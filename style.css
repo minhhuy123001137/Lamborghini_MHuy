@@ -273,15 +273,14 @@ main {
 .hero-shade {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 75% 50%, transparent 20%, rgba(9, 10, 8, 0.7) 70%),
-              linear-gradient(90deg, rgba(8, 9, 7, 0.95) 0%, rgba(8, 9, 7, 0.7) 40%, rgba(8, 9, 7, 0.1) 75%, rgba(8, 9, 7, 0.4) 100%),
-              linear-gradient(0deg, #090a08 0%, transparent 25%, rgba(9, 10, 8, 0.4) 100%);
+  background: linear-gradient(90deg, rgba(8, 10, 12, 0.88) 0%, rgba(8, 10, 12, 0.72) 32%, rgba(8, 10, 12, 0.15) 55%, transparent 75%),
+              linear-gradient(0deg, rgba(8, 10, 12, 0.35) 0%, transparent 25%);
   pointer-events: none;
 }
 .hero-grid {
   position: absolute;
   inset: 0;
-  opacity: 0.12;
+  opacity: 0.03;
   background-image: linear-gradient(90deg, transparent 49.9%, #d8d4bb 50%, transparent 50.1%),
                     linear-gradient(#d8d4bb 1px, transparent 1px);
   background-size: 100px 100px;

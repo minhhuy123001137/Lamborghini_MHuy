@@ -321,9 +321,11 @@
   }
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x090a08, 0.022);
+  // Daytime Desert Atmosphere — Horizon haze matching user reference image
+  scene.background = new THREE.Color(0xd4e9fb);
+  scene.fog = new THREE.Fog(0xd4e9fb, 45, 230);
 
-  const camera = new THREE.PerspectiveCamera(44, window.innerWidth / window.innerHeight, 0.1, 150);
+  const camera = new THREE.PerspectiveCamera(44, window.innerWidth / window.innerHeight, 0.1, 350);
   camera.position.set(3.6, 1.6, 5.2);
 
   const renderer = new THREE.WebGLRenderer({
@@ -335,28 +337,42 @@
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.35;
+  renderer.toneMappingExposure = 1.25;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  // Showroom Lighting (Accentuating the SVJ's angular lines and metallic pearlescent orange)
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+  // Brilliant Natural Desert Sunlight & Sky Atmosphere
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
   scene.add(ambientLight);
 
-  const sunLight = new THREE.DirectionalLight(0xfff7e8, 2.8);
-  sunLight.position.set(7, 13, 6);
+  // Hemisphere Light: Radiant sky blue from above + Warm golden desert bounce from below
+  const hemiLight = new THREE.HemisphereLight(0x56a4ff, 0xdeb470, 1.25);
+  scene.add(hemiLight);
+
+  // Main Sun Light: High-angle bright sunlight illuminating the road and golden hills
+  const sunLight = new THREE.DirectionalLight(0xfff6e4, 2.75);
+  sunLight.position.set(24, 45, -16);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.width = 1024;
-  sunLight.shadow.mapSize.height = 1024;
+  sunLight.shadow.mapSize.width = 2048;
+  sunLight.shadow.mapSize.height = 2048;
+  sunLight.shadow.camera.near = 1;
+  sunLight.shadow.camera.far = 120;
+  sunLight.shadow.camera.left = -25;
+  sunLight.shadow.camera.right = 25;
+  sunLight.shadow.camera.top = 25;
+  sunLight.shadow.camera.bottom = -25;
+  sunLight.shadow.bias = -0.0003;
   scene.add(sunLight);
 
-  const orangeRimLight = new THREE.DirectionalLight(0xff6600, 3.4);
-  orangeRimLight.position.set(-8, 5, -6);
-  scene.add(orangeRimLight);
+  // Warm Desert Fill Light
+  const desertFillLight = new THREE.DirectionalLight(0xffe2b8, 0.75);
+  desertFillLight.position.set(-20, 25, 25);
+  scene.add(desertFillLight);
 
-  const coolFillLight = new THREE.DirectionalLight(0x90c4ff, 1.2);
-  coolFillLight.position.set(-6, 4, 8);
-  scene.add(coolFillLight);
+  // Rim Light accentuating the Aventador SVJ's angular carbon edges
+  const sunRimLight = new THREE.DirectionalLight(0xffeaad, 1.1);
+  sunRimLight.position.set(-15, 8, -25);
+  scene.add(sunRimLight);
 
   // Car Root & Suspension Container
   const carRoot = new THREE.Group();
@@ -501,6 +517,8 @@
     model.scale.set(0.01, 0.01, 0.01);
     model.position.set(0, 0, 0);
 
+    const wheelMeshes = [];
+
     model.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
@@ -520,20 +538,43 @@
           child.material = glassMaterial;
         }
 
-        // Center wheel geometries around axle hubs so they spin smoothly
+        // Collect wheel meshes to set up clean pivots without modifying tree during traversal
         if (name.startsWith('Wheel_')) {
-          if (child.geometry) {
-            child.geometry.computeBoundingBox();
-            const center = new THREE.Vector3();
-            child.geometry.boundingBox.getCenter(center);
-            child.geometry.center();
-            child.position.copy(center);
+          wheelMeshes.push(child);
+        }
+      }
+    });
 
-            animatedWheels.push(child);
-            if (name.includes('_F')) {
-              frontSteerWheels.push(child);
-            }
-          }
+    // Rig wheels cleanly with dedicated steering pivots for front wheels (prevents rotation axis wobble)
+    wheelMeshes.forEach(child => {
+      const name = child.name;
+      if (child.geometry) {
+        child.geometry.computeBoundingBox();
+        const center = new THREE.Vector3();
+        child.geometry.boundingBox.getCenter(center);
+        child.geometry.center();
+
+        if (name.includes('_F')) {
+          // Front Steerable Wheels:
+          // Create an independent steering pivot group at the wheel axle center
+          const parent = child.parent || model;
+          const steerPivot = new THREE.Group();
+          steerPivot.name = name + '_SteerPivot';
+          steerPivot.position.copy(center);
+          parent.add(steerPivot);
+
+          // Place the wheel mesh at local (0, 0, 0) inside the steering pivot
+          child.position.set(0, 0, 0);
+          steerPivot.add(child);
+
+          // Animated wheels roll exclusively on local horizontal X-axis
+          animatedWheels.push(child);
+          // Steer pivot steers exclusively on vertical Y-axis
+          frontSteerWheels.push(steerPivot);
+        } else {
+          // Rear Wheels (fixed axle, roll exclusively on X-axis)
+          child.position.copy(center);
+          animatedWheels.push(child);
         }
       }
     });
@@ -705,36 +746,686 @@
   const streakField = new THREE.LineSegments(streakGeometry, streakMaterial);
   windGroup.add(streakField);
 
-  // Moving Asphalt Road Surface
-  const roadGroup = new THREE.Group();
-  scene.add(roadGroup);
+  /* ==========================================================================
+   * 5. PHOTOREALISTIC DESERT HIGHWAY, ROLLING GOLDEN HILLS & CLOUDS ENVIRONMENT
+   * (Meticulously crafted to match user reference image: authentic Australian/desert
+   *  road, wire-rope green barrier, golden rolling hills, 3D wild grass tufts,
+   *  eucalyptus trees, and realistic sky with billowing 3D cumulus clouds)
+   * ========================================================================== */
+  const environmentGroup = new THREE.Group();
+  scene.add(environmentGroup);
 
-  const roadPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(36, 120),
-    new THREE.MeshStandardMaterial({
-      color: 0x08090a,
-      roughness: 0.35,
-      metalness: 0.75
-    })
-  );
-  roadPlane.rotation.x = -Math.PI / 2;
-  roadPlane.position.y = 0;
-  roadGroup.add(roadPlane);
+  // 1. High-Resolution Atmospheric Sky Dome with Rayleigh Scattering & Sun Corona
+  function createSkyTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
 
-  const roadDashes = [];
-  for (let d = -25; d <= 25; d += 4) {
-    const dash = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.18, 2.2),
-      new THREE.MeshBasicMaterial({
-        color: 0xff6600,
-        transparent: true,
-        opacity: 0.4
-      })
+    // Natural multi-stop sky gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, 1024);
+    grad.addColorStop(0.00, '#1248a3'); // Deep royal blue zenith
+    grad.addColorStop(0.20, '#1f65d6'); // Rich cerulean blue
+    grad.addColorStop(0.45, '#4288ea'); // Daylight azure
+    grad.addColorStop(0.70, '#7bb3f4'); // Soft atmospheric blue
+    grad.addColorStop(0.88, '#b6d7fa'); // Pale sky blue near horizon
+    grad.addColorStop(0.96, '#dceaf9'); // Subtle horizon haze
+    grad.addColorStop(1.00, '#e8f2fc'); // Warm horizon ground merge
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Brilliant Sun Disk & Solar Corona
+    const sunX = 720;
+    const sunY = 260;
+    const coronaGrad = ctx.createRadialGradient(sunX, sunY, 12, sunX, sunY, 260);
+    coronaGrad.addColorStop(0.00, 'rgba(255, 255, 255, 1.0)');
+    coronaGrad.addColorStop(0.06, 'rgba(255, 250, 230, 0.95)');
+    coronaGrad.addColorStop(0.22, 'rgba(255, 235, 180, 0.55)');
+    coronaGrad.addColorStop(0.55, 'rgba(255, 215, 140, 0.18)');
+    coronaGrad.addColorStop(1.00, 'rgba(255, 200, 100, 0.0)');
+    ctx.fillStyle = coronaGrad;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 260, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
+
+  const skyGeo = new THREE.SphereGeometry(230, 32, 24);
+  const skyMat = new THREE.MeshBasicMaterial({
+    map: createSkyTexture(),
+    side: THREE.BackSide,
+    depthWrite: false
+  });
+  const skyDome = new THREE.Mesh(skyGeo, skyMat);
+  environmentGroup.add(skyDome);
+
+  // 2. Realistic Multi-Tier 3D Cumulus Clouds (Billowing white tops & soft shaded bellies)
+  const cloudsGroup = new THREE.Group();
+  environmentGroup.add(cloudsGroup);
+  const cloudClusters = [];
+
+  function createCumulusCluster(scale = 1.0) {
+    const cluster = new THREE.Group();
+    const cloudMat = new THREE.MeshLambertMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.96,
+      roughness: 0.94
+    });
+
+    const puffCount = 10 + Math.floor(Math.random() * 6);
+    for (let p = 0; p < puffCount; p++) {
+      const pr = (2.4 + Math.random() * 2.8) * scale;
+      const puffGeo = new THREE.DodecahedronGeometry(pr, 1);
+      const puff = new THREE.Mesh(puffGeo, cloudMat);
+      puff.position.set(
+        (Math.random() - 0.5) * 9.5 * scale,
+        (Math.random() * 0.8 - 0.2) * 2.8 * scale,
+        (Math.random() - 0.5) * 7.0 * scale
+      );
+      puff.scale.set(1.4, 0.72 + Math.random() * 0.25, 1.25);
+      cluster.add(puff);
+    }
+    return cluster;
+  }
+
+  function createHorizonCloudBank(widthScale = 2.5) {
+    const cluster = new THREE.Group();
+    const cloudMat = new THREE.MeshLambertMaterial({
+      color: 0xfcfdff,
+      transparent: true,
+      opacity: 0.88,
+      roughness: 0.96
+    });
+
+    const puffCount = 6 + Math.floor(Math.random() * 4);
+    for (let p = 0; p < puffCount; p++) {
+      const pr = 3.5 + Math.random() * 3.0;
+      const puffGeo = new THREE.DodecahedronGeometry(pr, 1);
+      const puff = new THREE.Mesh(puffGeo, cloudMat);
+      puff.position.set(
+        (p - puffCount / 2) * 6.5 * widthScale,
+        (Math.random() - 0.5) * 1.8,
+        (Math.random() - 0.5) * 4.0
+      );
+      puff.scale.set(widthScale, 0.45, 1.3);
+      cluster.add(puff);
+    }
+    return cluster;
+  }
+
+  // Generate Overhead & Midground Billowing Cumulus
+  for (let c = 0; c < 18; c++) {
+    const scale = 0.95 + Math.random() * 1.5;
+    const cloudMesh = createCumulusCluster(scale);
+    const cx = (Math.random() - 0.5) * 260;
+    const cy = 32 + Math.random() * 38;
+    const cz = -150 + Math.random() * 200;
+    cloudMesh.position.set(cx, cy, cz);
+    cloudsGroup.add(cloudMesh);
+    cloudClusters.push({
+      group: cloudMesh,
+      speed: 0.42 + Math.random() * 0.4
+    });
+  }
+
+  // Generate Distant Horizon Stratocumulus Banks (matching photo)
+  for (let h = 0; h < 8; h++) {
+    const cloudMesh = createHorizonCloudBank(2.2 + Math.random() * 1.5);
+    const cx = -120 + h * 34 + (Math.random() - 0.5) * 15;
+    const cy = 20 + Math.random() * 12;
+    const cz = -130 - Math.random() * 45;
+    cloudMesh.position.set(cx, cy, cz);
+    cloudsGroup.add(cloudMesh);
+    cloudClusters.push({
+      group: cloudMesh,
+      speed: 0.22 + Math.random() * 0.2
+    });
+  }
+
+  // 3. Desert Road Curve Function (Sweeps smoothly to the right into the distance)
+  function getRoadCenter(z) {
+    if (z >= 0) {
+      return -Math.sin(z * 0.04) * 2.5;
+    }
+    const t = -z;
+    return Math.sin(t * 0.024) * 16.5 + (t * 0.052);
+  }
+
+  // 4. High-Definition Asphalt Road Texture & Bump Map (1024 x 2048)
+  function createRoadMaps() {
+    // Diffuse Map
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 2048;
+    const ctx = canvas.getContext('2d');
+
+    // Asphalt base dark charcoal
+    ctx.fillStyle = '#222327';
+    ctx.fillRect(0, 0, 1024, 2048);
+
+    // Multi-layer pebble aggregate noise
+    const imgData = ctx.getImageData(0, 0, 1024, 2048);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const noise = (Math.random() - 0.5) * 24;
+      data[i] = Math.max(0, Math.min(255, data[i] + noise));
+      data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + noise));
+      data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + noise));
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Dark polished tire tracks in both lanes
+    ctx.fillStyle = 'rgba(16, 17, 20, 0.48)';
+    ctx.fillRect(230, 0, 90, 2048);
+    ctx.fillRect(390, 0, 90, 2048);
+    ctx.fillRect(555, 0, 90, 2048);
+    ctx.fillRect(715, 0, 90, 2048);
+
+    // Outer gravel & sand road shoulders (Left: 0..120, Right: 904..1024)
+    const gradL = ctx.createLinearGradient(0, 0, 120, 0);
+    gradL.addColorStop(0.0, '#a1865e');
+    gradL.addColorStop(0.7, '#8f764f');
+    gradL.addColorStop(1.0, 'rgba(143, 118, 79, 0)');
+    ctx.fillStyle = gradL;
+    ctx.fillRect(0, 0, 120, 2048);
+
+    const gradR = ctx.createLinearGradient(1024, 0, 904, 0);
+    gradR.addColorStop(0.0, '#a1865e');
+    gradR.addColorStop(0.7, '#8f764f');
+    gradR.addColorStop(1.0, 'rgba(143, 118, 79, 0)');
+    ctx.fillStyle = gradR;
+    ctx.fillRect(904, 0, 120, 2048);
+
+    // Left continuous solid white line
+    ctx.fillStyle = '#f5f7fa';
+    ctx.fillRect(128, 0, 14, 2048);
+
+    // Right edge dashed white line
+    const dashH = 104;
+    const gapH = 72;
+    for (let y = 0; y < 2048; y += dashH + gapH) {
+      ctx.fillRect(882, y, 14, dashH);
+    }
+
+    // Double continuous white center divider lines
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(498, 0, 10, 2048);
+    ctx.fillRect(516, 0, 10, 2048);
+
+    // Raised reflective cat's eyes on center line
+    ctx.fillStyle = '#fff4cc';
+    for (let y = 28; y < 2048; y += 180) {
+      ctx.fillRect(507, y, 10, 20);
+    }
+
+    const diffuseTex = new THREE.CanvasTexture(canvas);
+    diffuseTex.wrapS = THREE.RepeatWrapping;
+    diffuseTex.wrapT = THREE.RepeatWrapping;
+    diffuseTex.repeat.set(1, 4);
+
+    // Bump Map for real asphalt relief
+    const bCanvas = document.createElement('canvas');
+    bCanvas.width = 512;
+    bCanvas.height = 1024;
+    const bCtx = bCanvas.getContext('2d');
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, 512, 1024);
+    const bImg = bCtx.getImageData(0, 0, 512, 1024);
+    const bData = bImg.data;
+    for (let i = 0; i < bData.length; i += 4) {
+      const n = (Math.random() - 0.5) * 55;
+      bData[i] = Math.max(0, Math.min(255, 128 + n));
+      bData[i + 1] = bData[i];
+      bData[i + 2] = bData[i];
+    }
+    bCtx.putImageData(bImg, 0, 0);
+
+    const bumpTex = new THREE.CanvasTexture(bCanvas);
+    bumpTex.wrapS = THREE.RepeatWrapping;
+    bumpTex.wrapT = THREE.RepeatWrapping;
+    bumpTex.repeat.set(1, 4);
+
+    return { diffuse: diffuseTex, bump: bumpTex };
+  }
+
+  const roadMaps = createRoadMaps();
+  const roadTexture = roadMaps.diffuse;
+  const roadMat = new THREE.MeshStandardMaterial({
+    map: roadMaps.diffuse,
+    bumpMap: roadMaps.bump,
+    bumpScale: 0.025,
+    roughness: 0.42,
+    metalness: 0.22
+  });
+
+  // Curved Asphalt Road Ribbon Mesh
+  function createCurvedRoadMesh() {
+    const segments = 180;
+    const zStart = 32;
+    const zEnd = -145;
+    const roadWidth = 10.8;
+    const halfW = roadWidth / 2;
+
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const z = zStart + (zEnd - zStart) * t;
+      const zNext = z - 0.5;
+      const cx = getRoadCenter(z);
+      const cxNext = getRoadCenter(zNext);
+
+      const dz = zNext - z;
+      const dx = cxNext - cx;
+      const len = Math.sqrt(dx * dx + dz * dz) || 1;
+      const nx = -dz / len;
+      const nz = dx / len;
+
+      positions.push(cx + nx * halfW, 0.02, z + nz * halfW);
+      uvs.push(0, t * 14);
+
+      positions.push(cx - nx * halfW, 0.02, z - nz * halfW);
+      uvs.push(1, t * 14);
+
+      if (i < segments) {
+        const v0 = i * 2;
+        const v1 = i * 2 + 1;
+        const v2 = (i + 1) * 2;
+        const v3 = (i + 1) * 2 + 1;
+        indices.push(v0, v2, v1);
+        indices.push(v1, v2, v3);
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+
+    const mesh = new THREE.Mesh(geometry, roadMat);
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  const roadMesh = createCurvedRoadMesh();
+  environmentGroup.add(roadMesh);
+
+  // 5. Terrain Elevation Calculator (Organic rolling golden hills & smooth road verge)
+  function getTerrainElevation(x, z) {
+    const rc = getRoadCenter(z);
+    const dist = Math.abs(x - rc);
+    const roadWidth = 6.6;
+    const vergeWidth = 4.2;
+    const slopeWidth = 10.0;
+
+    // Road flat bed
+    if (dist <= roadWidth) return 0;
+
+    // Road verge & transition to hills
+    let blend = 0;
+    if (dist > roadWidth) {
+      const u = Math.min(1.0, (dist - roadWidth) / (vergeWidth + slopeWidth));
+      blend = u * u * (3 - 2 * u); // Smoothstep
+    }
+
+    // 1. Prominent golden rolling hill on the left (matching photo)
+    let leftHill = 0;
+    if (x < rc) {
+      const hx = (x - (rc - 40)) / 30;
+      const hz = (z + 24) / 45;
+      leftHill = Math.exp(-hx * hx - hz * hz) * 21.0;
+
+      // Secondary ridge on the left
+      const hx2 = (x - (rc - 65)) / 28;
+      const hz2 = (z - 10) / 40;
+      leftHill += Math.exp(-hx2 * hx2 - hz2 * hz2) * 14.0;
+    }
+
+    // 2. Rolling dunes on the right (matching photo)
+    let rightDunes = 0;
+    if (x > rc) {
+      const rx = (x - (rc + 38)) / 28;
+      const rz = (z + 45) / 50;
+      rightDunes = Math.exp(-rx * rx - rz * rz) * 11.0;
+    }
+
+    // 3. Natural undulating savanna waves across the whole landscape
+    const rollingWaves = (
+      Math.sin(x * 0.038 + z * 0.018) * 5.8 +
+      Math.cos(z * 0.032 - x * 0.022) * 5.0 +
+      Math.sin(x * 0.075 + z * 0.06) * 2.6 +
+      Math.cos(x * 0.11 - z * 0.08) * 1.3
     );
-    dash.rotation.x = -Math.PI / 2;
-    dash.position.set(0, 0.01, d);
-    roadGroup.add(dash);
-    roadDashes.push(dash);
+
+    // 4. Distant horizon mountain ridges (z < -45)
+    let distantRidge = 0;
+    if (z < -45) {
+      const depth = Math.min(1.0, (-z - 45) / 45.0);
+      distantRidge = (Math.sin(x * 0.032) * 9.5 + Math.cos(x * 0.055) * 5.5 + 4.5) * depth;
+    }
+
+    return Math.max(0, (rollingWaves + leftHill + rightDunes + distantRidge + 3.2) * blend);
+  }
+
+  // 6. High-Definition Golden-Straw Grass & Sand Texture with Relief Bump Map
+  function createTerrainMaps() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+
+    // Base warm golden-straw / yellow-ochre tone
+    ctx.fillStyle = '#cca462';
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Layered organic sand & dry grass mottling
+    const colors = ['#dfba76', '#b68f4b', '#e8ce92', '#a07d3c', '#d3ac69', '#cca35e'];
+    for (let i = 0; i < 7000; i++) {
+      const x = Math.random() * 1024;
+      const y = Math.random() * 1024;
+      const r = 3 + Math.random() * 9;
+      ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Fine straw fibers and dry grass blades
+    ctx.lineWidth = 1.4;
+    for (let i = 0; i < 5000; i++) {
+      const x = Math.random() * 1024;
+      const y = Math.random() * 1024;
+      const len = 4 + Math.random() * 8;
+      const ang = (Math.random() - 0.5) * 1.6;
+      ctx.strokeStyle = Math.random() > 0.4 ? '#ebd49d' : '#997637';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.sin(ang) * len, y + Math.cos(ang) * len);
+      ctx.stroke();
+    }
+
+    const diffuseTex = new THREE.CanvasTexture(canvas);
+    diffuseTex.wrapS = THREE.RepeatWrapping;
+    diffuseTex.wrapT = THREE.RepeatWrapping;
+    diffuseTex.repeat.set(24, 24);
+
+    // Bump Map for straw relief
+    const bCanvas = document.createElement('canvas');
+    bCanvas.width = 512;
+    bCanvas.height = 512;
+    const bCtx = bCanvas.getContext('2d');
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, 512, 512);
+    const bImg = bCtx.getImageData(0, 0, 512, 512);
+    const bData = bImg.data;
+    for (let i = 0; i < bData.length; i += 4) {
+      const n = (Math.random() - 0.5) * 75;
+      bData[i] = Math.max(0, Math.min(255, 128 + n));
+      bData[i + 1] = bData[i];
+      bData[i + 2] = bData[i];
+    }
+    bCtx.putImageData(bImg, 0, 0);
+
+    const bumpTex = new THREE.CanvasTexture(bCanvas);
+    bumpTex.wrapS = THREE.RepeatWrapping;
+    bumpTex.wrapT = THREE.RepeatWrapping;
+    bumpTex.repeat.set(24, 24);
+
+    return { diffuse: diffuseTex, bump: bumpTex };
+  }
+
+  const terrainMaps = createTerrainMaps();
+  const terrainMat = new THREE.MeshStandardMaterial({
+    map: terrainMaps.diffuse,
+    bumpMap: terrainMaps.bump,
+    bumpScale: 0.07,
+    roughness: 0.90,
+    metalness: 0.04
+  });
+
+  // Rolling Desert Hills Terrain Mesh (25,600 smooth vertices)
+  function createDesertTerrainMesh() {
+    const geo = new THREE.PlaneGeometry(280, 280, 160, 160);
+    geo.rotateX(-Math.PI / 2);
+
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      const vz = pos.getZ(i);
+      pos.setY(i, getTerrainElevation(vx, vz));
+    }
+    geo.computeVertexNormals();
+
+    const mesh = new THREE.Mesh(geo, terrainMat);
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  const terrainMesh = createDesertTerrainMesh();
+  environmentGroup.add(terrainMesh);
+
+  // 7. 3D Wild Straw Grass Tufts along Roadside Verge (Breaks silhouette edge for photorealism)
+  function createGrassTuftTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 128, 128);
+
+    const colors = ['#e5c88c', '#caa25a', '#dfb872', '#b58f4a', '#8a6b32'];
+    for (let b = 0; b < 28; b++) {
+      const startX = 64 + (Math.random() - 0.5) * 24;
+      const endX = startX + (Math.random() - 0.5) * 48;
+      const endY = 12 + Math.random() * 26;
+      ctx.strokeStyle = colors[Math.floor(Math.random() * colors.length)];
+      ctx.lineWidth = 1.8 + Math.random() * 1.2;
+      ctx.beginPath();
+      ctx.moveTo(startX, 128);
+      ctx.quadraticCurveTo(startX + (endX - startX) * 0.4, 70, endX, endY);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
+
+  const grassTuftMat = new THREE.MeshLambertMaterial({
+    map: createGrassTuftTexture(),
+    transparent: true,
+    alphaTest: 0.35,
+    side: THREE.DoubleSide
+  });
+
+  const grassTuftGeo1 = new THREE.PlaneGeometry(1.6, 1.4);
+  grassTuftGeo1.translate(0, 0.7, 0);
+  const grassTuftGeo2 = grassTuftGeo1.clone();
+  grassTuftGeo2.rotateY(Math.PI / 2);
+
+  const grassTuftCombinedGeo = new THREE.BufferGeometry();
+  // Simple crossed plane tuft group
+  for (let g = 0; g < 95; g++) {
+    const gz = -120 + g * 1.5;
+    const side = (g % 3 === 0) ? 1 : -1;
+    const offset = side * (5.8 + Math.random() * 3.8);
+    const gx = getRoadCenter(gz) + offset;
+    const gy = getTerrainElevation(gx, gz);
+
+    const tuftGroup = new THREE.Group();
+    const p1 = new THREE.Mesh(grassTuftGeo1, grassTuftMat);
+    const p2 = new THREE.Mesh(grassTuftGeo2, grassTuftMat);
+    p1.castShadow = true;
+    tuftGroup.add(p1, p2);
+
+    const sc = 0.8 + Math.random() * 0.6;
+    tuftGroup.scale.set(sc, sc, sc);
+    tuftGroup.position.set(gx, gy, gz);
+    tuftGroup.rotation.y = Math.random() * Math.PI;
+    environmentGroup.add(tuftGroup);
+  }
+
+  // 8. Roadside Australian Wire-Rope Safety Barrier (Green steel posts with white collar & cables)
+  const safetyPosts = [];
+  const postCount = 32;
+  const postSpacing = 3.8;
+  const postGreenMat = new THREE.MeshStandardMaterial({ color: 0x1f472f, roughness: 0.52 });
+  const postWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf5f6f8, roughness: 0.35 });
+  const cableMat = new THREE.MeshStandardMaterial({ color: 0xc5cbd1, metalness: 0.85, roughness: 0.25 });
+
+  const postGeo = new THREE.CylinderGeometry(0.082, 0.082, 0.95, 12);
+  const capGeo = new THREE.CylinderGeometry(0.085, 0.085, 0.14, 12);
+  const wireGeo = new THREE.BoxGeometry(0.015, 0.015, postSpacing);
+
+  const postsGroup = new THREE.Group();
+  environmentGroup.add(postsGroup);
+
+  for (let i = 0; i < postCount; i++) {
+    const pGroup = new THREE.Group();
+    // Green post body
+    const body = new THREE.Mesh(postGeo, postGreenMat);
+    body.position.y = 0.475;
+    body.castShadow = true;
+    // White reflector sleeve/collar
+    const cap = new THREE.Mesh(capGeo, postWhiteMat);
+    cap.position.y = 0.95 - 0.08;
+    pGroup.add(body, cap);
+
+    // 3 Horizontal galvanized wire rope cables extending to next post
+    [0.42, 0.60, 0.78].forEach(wireY => {
+      const wire = new THREE.Mesh(wireGeo, cableMat);
+      wire.position.set(0, wireY, -postSpacing / 2);
+      pGroup.add(wire);
+    });
+
+    const initialZ = 22 - i * postSpacing;
+    pGroup.position.set(getRoadCenter(initialZ) - 5.2, 0, initialZ);
+    postsGroup.add(pGroup);
+    safetyPosts.push({ group: pGroup, z: initialZ });
+  }
+
+  // 9. Australian Eucalyptus & Acacia Trees (Authentic twisted bark & layered olive foliage)
+  const vegetationGroup = new THREE.Group();
+  environmentGroup.add(vegetationGroup);
+
+  function createEucalyptusTree(scale = 1.0, isHeroGnarled = false) {
+    const treeGroup = new THREE.Group();
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x382d21, roughness: 0.94 });
+    const leafColors = [0x425431, 0x52653a, 0x657944, 0x76874e];
+
+    // Main gnarled trunk
+    const trunkHeight = (2.6 + Math.random() * 0.9) * scale;
+    const trunkGeo = new THREE.CylinderGeometry(0.18 * scale, 0.34 * scale, trunkHeight, 8);
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.y = trunkHeight / 2;
+    trunk.castShadow = true;
+    treeGroup.add(trunk);
+
+    // 2-4 Spreading Gnarled Branches
+    const branchCount = isHeroGnarled ? 4 : (2 + Math.floor(Math.random() * 2));
+    for (let b = 0; b < branchCount; b++) {
+      const angle = (b / branchCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+      const bLen = (1.6 + Math.random() * 0.9) * scale;
+      const branchGeo = new THREE.CylinderGeometry(0.09 * scale, 0.16 * scale, bLen, 6);
+      const branch = new THREE.Mesh(branchGeo, trunkMat);
+      branch.position.set(
+        Math.cos(angle) * 0.48 * scale,
+        trunkHeight * 0.78,
+        Math.sin(angle) * 0.48 * scale
+      );
+      branch.rotation.z = Math.cos(angle) * 0.58;
+      branch.rotation.x = Math.sin(angle) * 0.58;
+      treeGroup.add(branch);
+
+      // Dead dry branch twig (classic Australian eucalyptus feature)
+      if (b === 0 && isHeroGnarled) {
+        const dryTwig = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.04 * scale, 0.08 * scale, 1.4 * scale, 5),
+          trunkMat
+        );
+        dryTwig.position.set(Math.cos(angle) * 1.4 * scale, trunkHeight * 1.1, Math.sin(angle) * 1.4 * scale);
+        dryTwig.rotation.z = 0.8;
+        dryTwig.castShadow = true;
+        treeGroup.add(dryTwig);
+      }
+
+      // Clustered Organic Foliage Canopies
+      const leafColor = leafColors[Math.floor(Math.random() * leafColors.length)];
+      const leafMat = new THREE.MeshLambertMaterial({ color: leafColor });
+      const foliageCount = isHeroGnarled ? 3 : (2 + Math.floor(Math.random() * 2));
+      for (let f = 0; f < foliageCount; f++) {
+        const fr = (1.3 + Math.random() * 0.6) * scale;
+        const foliageGeo = new THREE.DodecahedronGeometry(fr, 1);
+        const foliage = new THREE.Mesh(foliageGeo, leafMat);
+        foliage.scale.set(1.35, 0.72 + Math.random() * 0.28, 1.2);
+        foliage.position.set(
+          Math.cos(angle) * (1.0 + f * 0.75) * scale + (Math.random() - 0.5) * 0.35,
+          trunkHeight + (0.55 + f * 0.55) * scale,
+          Math.sin(angle) * (1.0 + f * 0.75) * scale + (Math.random() - 0.5) * 0.35
+        );
+        foliage.castShadow = true;
+        treeGroup.add(foliage);
+      }
+    }
+    return treeGroup;
+  }
+
+  // Hero Trees on the Left Grassy Bank (matching the exact prominent trees in user's photo)
+  const heroTreeCoords = [
+    { z: -18, xOffset: -9.8, scale: 1.35, isHero: true },
+    { z: -34, xOffset: -11.5, scale: 1.25, isHero: true },
+    { z: -52, xOffset: -13.2, scale: 1.40, isHero: false },
+    { z: -72, xOffset: -12.5, scale: 1.15, isHero: false }
+  ];
+
+  heroTreeCoords.forEach(item => {
+    const tx = getRoadCenter(item.z) + item.xOffset;
+    const ty = getTerrainElevation(tx, item.z);
+    const tree = createEucalyptusTree(item.scale, item.isHero);
+    tree.position.set(tx, ty, item.z);
+    vegetationGroup.add(tree);
+  });
+
+  // Additional trees scattered across the rolling hills and ridge lines
+  const hillTreeCoords = [
+    { x: -38, z: -25, scale: 1.2 },
+    { x: -54, z: -48, scale: 1.15 },
+    { x: -64, z: -16, scale: 1.35 },
+    { x: 32, z: -38, scale: 1.1 },
+    { x: 50, z: -64, scale: 1.2 },
+    { x: 26, z: -84, scale: 1.25 },
+    { x: -28, z: -104, scale: 1.2 },
+    { x: 14, z: -116, scale: 1.15 },
+    { x: -46, z: -80, scale: 1.2 },
+    { x: 58, z: -96, scale: 1.3 }
+  ];
+
+  hillTreeCoords.forEach(item => {
+    const ty = getTerrainElevation(item.x, item.z);
+    const tree = createEucalyptusTree(item.scale, false);
+    tree.position.set(item.x, ty, item.z);
+    vegetationGroup.add(tree);
+  });
+
+  // Low desert shrubs & scrub tufts dotted along the road embankment
+  const shrubMat = new THREE.MeshLambertMaterial({ color: 0x54663a });
+  for (let s = 0; s < 36; s++) {
+    const sz = -125 + s * 4.2;
+    const side = (s % 2 === 0) ? -1 : 1;
+    const sx = getRoadCenter(sz) + (side * (6.6 + Math.random() * 4.2));
+    const sy = getTerrainElevation(sx, sz);
+    const shrub = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.55 + Math.random() * 0.45, 1),
+      shrubMat
+    );
+    shrub.scale.set(1.4, 0.65, 1.2);
+    shrub.position.set(sx, sy, sz);
+    shrub.castShadow = true;
+    vegetationGroup.add(shrub);
   }
 
   /* --- 6. CAMERA POSES & USER INTERACTION --- */
@@ -816,21 +1507,28 @@
     isPointerDown = false;
   });
 
+  let targetSteerAngle = 0;
+  let currentSteerAngle = 0;
+
   window.addEventListener('pointermove', e => {
-    if (isOrbitActive && isPointerDown) {
-      const dx = e.clientX - lastPointerPos.x;
-      const dy = e.clientY - lastPointerPos.y;
-      lastPointerPos = { x: e.clientX, y: e.clientY };
+    if (isOrbitActive) {
+      if (isPointerDown) {
+        const dx = e.clientX - lastPointerPos.x;
+        const dy = e.clientY - lastPointerPos.y;
+        lastPointerPos = { x: e.clientX, y: e.clientY };
 
-      orbitSpherical.theta -= dx * 0.007;
-      orbitSpherical.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.05, orbitSpherical.phi - dy * 0.007));
+        orbitSpherical.theta -= dx * 0.007;
+        orbitSpherical.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.05, orbitSpherical.phi - dy * 0.007));
+      }
+      targetSteerAngle = 0; // Keep wheels aligned straight when rotating around in 360 inspect mode
+    } else {
+      const normX = (e.clientX / window.innerWidth - 0.5) * 2;
+      targetSteerAngle = normX * 0.28; // Natural supercar steering lock
     }
+  });
 
-    const normX = (e.clientX / window.innerWidth - 0.5) * 2;
-    const steerAngle = normX * 0.32;
-    frontSteerWheels.forEach(w => {
-      w.rotation.y = THREE.MathUtils.lerp(w.rotation.y, steerAngle, 0.12);
-    });
+  window.addEventListener('pointerleave', () => {
+    targetSteerAngle = 0; // Smoothly return steering to straight center when pointer leaves
   });
 
   window.addEventListener('wheel', e => {
@@ -902,7 +1600,13 @@
       hudDownforce.textContent = (baseDf + Math.floor(Math.cos(time * 6) * 8));
     }
 
-    // Spin Aventador SVJ wheels around axle
+    // Smooth front wheel steering angle interpolation (buttery smooth response)
+    currentSteerAngle = THREE.MathUtils.lerp(currentSteerAngle, targetSteerAngle, 0.08);
+    frontSteerWheels.forEach(pivot => {
+      pivot.rotation.y = currentSteerAngle;
+    });
+
+    // Spin Aventador SVJ wheels cleanly around axle (independent of steering yaw)
     const wheelRotSpeed = 24.0 * speedFactor * delta;
     animatedWheels.forEach(w => {
       w.rotation.x += wheelRotSpeed;
@@ -918,12 +1622,33 @@
     exhaustFlameR.scale.set(flameScale, flameScale * 1.25, flameScale);
     flameMaterial.color.setHex(turboBoostTimer > 0 ? 0xffaa22 : 0x4fa8ff);
 
-    // Moving Road Dashes
+    // Dynamic Desert Highway Motion (355 km/h)
     const roadSpeed = 38.0 * speedFactor * delta;
-    roadDashes.forEach(dash => {
-      dash.position.z -= roadSpeed;
-      if (dash.position.z < -25) {
-        dash.position.z += 50;
+
+    // 1. Fluid infinite road surface texture scrolling (synchronized with wheel speed)
+    if (roadTexture) {
+      const scrollOffset = roadSpeed * 0.0814;
+      roadTexture.offset.y -= scrollOffset;
+      if (typeof roadMaps !== 'undefined' && roadMaps.bump) {
+        roadMaps.bump.offset.y -= scrollOffset;
+      }
+    }
+
+    // 2. Roadside Green Safety Barrier Posts & Cables rush past along the curve
+    safetyPosts.forEach(post => {
+      post.z -= roadSpeed;
+      if (post.z < -95) {
+        post.z += postCount * postSpacing;
+      }
+      post.group.position.z = post.z;
+      post.group.position.x = getRoadCenter(post.z) - 5.2;
+    });
+
+    // 3. Gentle Fluffy Cloud Drift across the Horizon Sky
+    cloudClusters.forEach(c => {
+      c.group.position.x += c.speed * delta;
+      if (c.group.position.x > 140) {
+        c.group.position.x = -140;
       }
     });
 

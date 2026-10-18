@@ -6,11 +6,17 @@ Website giới thiệu siêu xe Lamborghini thế hệ mới với hiệu ứng 
 
 ## 🚀 Các tính năng nâng cấp mới
 
-1. **Hiệu ứng 3D siêu xe chạy trong nền & lướt gió (Three.js WebGL):**
-   - Mô hình 3D siêu xe Lamborghini sắc sảo (khung nêm góc cạnh đặc trưng, đèn pha LED chữ Y Terzo Millennio / Revuelto, cánh gió chủ động, ống xả kép phun lửa và mâm hợp kim thể thao xoay theo tốc độ).
-   - Bánh xe trước bẻ lái mượt mà theo vị trí con trỏ chuột.
+1. **Hiệu ứng 3D siêu xe chạy trên đại lộ sa mạc & lướt gió (Three.js WebGL):**
+   - **Địa hình sa mạc chân thực (chuẩn ảnh mẫu):** Con đường nhựa uốn lượn mềm mại về phía bên phải, có vạch kẻ đôi trắng, vạch đứt mép đường và dải sỏi cát ven đường.
+   - **Hàng cọc rào bảo hộ xanh lá & dây cáp thép:** Bố trí dọc theo khúc cua mép đường sa mạc, lướt qua sinh động mô phỏng tốc độ 355 km/h.
+   - **Đồi cát & cỏ khô vàng óng (Rolling Golden Hills):** Địa hình đồi núi trập trùng trải dài hai bên đường và đường chân trời xa xăm.
+   - **Cây cối sa mạc (Eucalyptus & Acacia):** Cây cối cành nhánh gồ ghề với tán lá xanh ô liu nằm ven dốc đường và rải rác trên các triền đồi đón bóng nắng mặt trời.
+   - **Bầu trời xanh, vầng thái dương & Mây trắng 3D đa tầng (Cumulus Clouds):** Vòm trời Rayleigh tán xạ ánh sáng tự nhiên với đĩa mặt trời rực rỡ, kèm các tầng mây trắng bồng bềnh và dải mây tầng thấp chân trời lơ lửng trôi.
+   - **Bụi cỏ khô 3D ven đường (Wild Grass Tufts):** Gần 100 khóm cỏ khô 3D rải rác dọc theo dải phân cách sỏi cát và triền đồi, xóa bỏ đường viền đa giác thô cứng và mang lại chiều sâu chân thực tối đa.
+   - **Mặt đường nhựa High-Definition kèm Bump Map:** Mặt đường nhựa 1024x2048 nổi vân hạt đá sần, vệt lốp sẫm màu, đinh phản quang cat's eye và dải sỏi cát chân thực.
+   - **Hệ thống Rigging 2 bánh trước hoàn hảo:** Tách biệt hoàn toàn trục quay ngang (pitch rolling) và khớp xoay bẻ lái trục đứng (yaw steering) qua `SteerPivot` độc lập, triệt tiêu 100% hiện tượng lệch tâm, lắc đảo hình bầu dục khi lăn bánh ở mọi góc đánh lái.
    - Thân xe rung nhẹ theo mặt đường mô phỏng tốc độ cao trên 350 km/h.
-   - **Hiệu ứng lướt gió khí động học (Wind Tunnel Streamlines):** 8 đường luồng khí 3D ôm sát mũi xe, nắp capo, kính chắn gió, nóc xe và cuộn lốc xoáy (vortex) sau cánh gió, kết hợp hàng trăm vệt gió tốc độ cao lướt qua.
+   - **Hiệu ứng lướt gió khí động học (Wind Tunnel Streamlines):** 8 đường luồng khí 3D ôm sát mũi xe, nắp capo, kính chắn gió, nóc xe và cuộn lốc xoáy (vortex) sau cánh gió, kết hợp hàng trăm vệt gió tốc độ cao lướt qua (có nút bật/tắt).
    - Chuyển động góc nhìn camera điện ảnh (Cinematic Camera) thay đổi góc quay theo từng phần khi cuộn trang:
      - **Hero:** Góc 3/4 mặt trước uy lực.
      - **Thiết kế (01):** Góc ngang sườn xe thể hiện trọn vẹn luồng gió hầm khí động học.
